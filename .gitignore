@@ -1,1 +1,5 @@
 .env
+config/theneweden-6dcba-firebase-adminsdk-fbsvc-c80f52499e.json
+__pycache__/
+*.pyc
+venv/
