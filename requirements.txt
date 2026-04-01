@@ -1,6 +1,6 @@
-Flask==3.0.2
-flask-cors==4.0.0
-firebase-admin==6.5.0
-Flask-Mail==0.9.1
-blinker==1.7.0
-python-dotenv==1.0.1
+Flask
+flask-cors
+firebase-admin
+Flask-Mail
+blinker
+python-dotenv
