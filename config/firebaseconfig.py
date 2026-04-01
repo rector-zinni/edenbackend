@@ -2,6 +2,9 @@ import os
 import json
 import firebase_admin
 from firebase_admin import credentials
+import dotenv
+dotenv.load_dotenv()
+
 
 # This check prevents re-initializing the app if Vercel re-runs the script
 if not firebase_admin._apps:
