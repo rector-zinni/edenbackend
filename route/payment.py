@@ -50,6 +50,7 @@ def verify_payment():
         data = request.json
         reference = data.get("reference")
         order_id = data.get("orderId") 
+        user_email = data.get("email")
 
         if not reference:
             return jsonify({"status": False, "message": "No reference provided"}), 400
