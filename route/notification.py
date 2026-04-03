@@ -2,8 +2,6 @@ from flask import Blueprint, jsonify, request
 from firebase_admin import firestore
 import datetime
 from service.notification import create_admin_notification
-import logging
-import requests
 
 notification_bp = Blueprint('notification', __name__)
 
@@ -92,68 +90,3 @@ def update_user_profile(user_id):
     except Exception as e:
         print(f"Update user profile error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-    
-
-
-@notification_bp.route('/save-push-token', methods=['POST'])
-def save_push_token():
-    try:
-        data = request.get_json(silent=True) or {}
-        uid = data.get('uid')
-        token = data.get('token')
-
-        if not uid or not token:
-            return jsonify({'error': 'Missing uid or token'}), 400
-
-        # Upsert user document with push_token (safe even if doc doesn't exist yet)
-        user_ref = get_db.collection('users').document(uid)
-        user_ref.set({'push_token': token}, merge=True)
-
-        logging.info(f'Saved push token for user {uid}')
-        return jsonify({'status': True, 'message': 'Push token saved'}), 200
-    except Exception as e:
-        logging.error(f'Error saving push token: {e}')
-        return jsonify({'status': False, 'error': 'Failed to save token'}), 500
-
-@notification_bp.route('/send-notification', methods=['POST'])
-def send_notification():
-    try:
-        data = request.get_json(silent=True) or {}
-        uid = data.get('uid')
-        title = data.get('title', 'Notification')
-        body = data.get('body', '')
-        data_payload = data.get('data', {})
-
-        if not uid:
-            return jsonify({'error': 'Missing uid'}), 400
-
-        # Get user push token
-        user_ref = get_db().collection('users').document(uid)
-        user_doc = user_ref.get()
-        if not user_doc.exists:
-            return jsonify({'error': 'User not found'}), 404
-
-        token = user_doc.to_dict().get('push_token')
-        if not token:
-            return jsonify({'error': 'No push token for user'}), 400
-
-        # Send via Expo push API
-        expo_url = 'https://exp.host/--/api/v2/push/send'
-        payload = {
-            'to': token,
-            'title': title,
-            'body': body,
-            'data': data_payload
-        }
-        response = requests.post(expo_url, json=payload, timeout=15)
-        expo_result = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
-
-        if response.status_code == 200 and expo_result.get('data', {}).get('status') in ('ok', None):
-            logging.info(f'Sent notification to user {uid}')
-            return jsonify({'status': True, 'message': 'Notification sent', 'provider': expo_result}), 200
-        else:
-            logging.error(f'Failed to send notification: {response.text}')
-            return jsonify({'status': False, 'error': 'Failed to send', 'provider': expo_result}), 500
-    except Exception as e:
-        logging.error(f'Error sending notification: {e}')
-        return jsonify({'status': False, 'error': 'Failed to send notification'}), 500
