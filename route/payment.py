@@ -1,6 +1,5 @@
 # routes/payment.py
 import requests
-import dotenv
 import os
 from flask import Blueprint, request, jsonify, g
 from firebase_admin import firestore
@@ -8,9 +7,10 @@ import datetime
 from service.email_template import get_order_template
 from service.send_email import send_eden_email
 from service.notification import create_admin_notification
+from config.env_loader import load_env_file
 db = firestore.client()
 
-dotenv.load_dotenv()
+load_env_file()
 payment_bp = Blueprint("payment", __name__)
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 

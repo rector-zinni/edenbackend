@@ -23,8 +23,15 @@ def send_async_email(app, msg, recipient_info):
             logger.error(error_msg)
             sys.stdout.flush()
 
-def send_eden_email(subject, recipient, body_html):
-    """Primary helper for sending emails without blocking the UI."""
+def send_eden_email(subject, recipient, body_html, background=False):
+    """Primary helper for sending emails.
+
+    Args:
+        subject (str): email subject.
+        recipient (str | list[str]): target address(es).
+        body_html (str): HTML content.
+        background (bool): if True, queue on thread and return immediately.
+    """
     if not recipient or not body_html:
         msg = f"⚠️  Invalid email data - recipient: {recipient}, body: {'<present>' if body_html else '<missing>'}"
         print(msg, flush=True)
@@ -45,19 +52,27 @@ def send_eden_email(subject, recipient, body_html):
             html=body_html
         )
 
-        # Fire and forget! The response goes back to Expo immediately.
-        def send_wrapper():
-            send_async_email(app_instance, msg, recipients_list)
-        
-        thread = threading.Thread(target=send_wrapper)
-        thread.daemon = True  # Make it a daemon thread
-        thread.start()
-        
-        thread_msg = f"📨 Email thread started"
-        print(thread_msg, flush=True)
-        logger.info(thread_msg)
-        sys.stdout.flush()
-        return True, "Email queued"
+        if background:
+            # Fire and forget.
+            def send_wrapper():
+                send_async_email(app_instance, msg, recipients_list)
+
+            thread = threading.Thread(target=send_wrapper)
+            thread.daemon = True
+            thread.start()
+
+            thread_msg = "📨 Email thread started"
+            print(thread_msg, flush=True)
+            logger.info(thread_msg)
+            sys.stdout.flush()
+            return True, "Email queued"
+
+        # Synchronous send: return real SMTP success/failure to caller.
+        mail.send(msg)
+        success_msg = f"✅ Success: Email delivered to {recipients_list}"
+        print(success_msg, flush=True)
+        logger.info(success_msg)
+        return True, "Email sent"
     except Exception as e:
         error_msg = str(e)
         exc_msg = f"❌ Email Dispatch Error: {error_msg}"

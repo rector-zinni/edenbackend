@@ -6,6 +6,9 @@ from firebase_admin import firestore, auth, storage
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from functools import wraps
+from config.env_loader import load_env_file
+
+load_env_file()
 
 # Import your custom extensions and routes
 # Ensure these files are in your GitHub repository
@@ -21,6 +24,7 @@ from route.payment import payment_bp
 from route.order import orders_bp
 from route.admin import admin_bp
 from route.notification import notification_bp
+from route.send_email import send_email_bp
 
 # 1. Setup Logging
 # Vercel captures stdout/stderr automatically. 
@@ -38,12 +42,17 @@ CORS(app)
 
 # 2. Mail Configuration
 # It's best practice to use environment variables for passwords on Vercel
-app.config['MAIL_SERVER'] = 'mail.privateemail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', 'support@moamudipefoundation.org')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', 'Rector-99') 
+mail_port = int(os.getenv('MAIL_PORT', '587'))
+mail_use_tls = os.getenv('MAIL_USE_TLS', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
+mail_use_ssl = os.getenv('MAIL_USE_SSL', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'mail.privateemail.com')
+app.config['MAIL_PORT'] = mail_port
+app.config['MAIL_USE_TLS'] = mail_use_tls
+app.config['MAIL_USE_SSL'] = mail_use_ssl
+app.config['MAIL_TIMEOUT'] = int(os.getenv('MAIL_TIMEOUT', '20'))
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = ('The New Eden', app.config['MAIL_USERNAME'])
 
 # Initialize Mailer
@@ -105,8 +114,9 @@ app.register_blueprint(orders_bp, url_prefix="/api")
 app.register_blueprint(delivery_bp, url_prefix="/api")
 app.register_blueprint(admin_bp, url_prefix="/api")
 app.register_blueprint(notification_bp, url_prefix="/api")
+app.register_blueprint(send_email_bp, url_prefix="/api")
 
 # Vercel uses the 'app' object directly. 
 # The block below is only used for your local development.
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False, load_dotenv=False)

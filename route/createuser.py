@@ -47,8 +47,8 @@ def sync_user():
     state = data.get("state")
     full_name = data.get("fullName")
     role = 'buyer'
-    photoUrl = ''
-    phoneNumber = ''
+    photoUrl = data.get("photoURL", "")
+    phoneNumber = '080xxxxxxxx'  # Placeholder, since we don't get this from Firebase Auth
 
     user_ref = db.collection("users").document(uid)
     user_doc = user_ref.get()
