@@ -1,6 +1,8 @@
 import threading
 import logging
-import sys
+import time
+import socket
+import smtplib
 from email.utils import formataddr
 from flask_mail import Message
 from flask import current_app
@@ -8,21 +10,44 @@ from extensions import mail  # Import the neutral mail object
 
 logger = logging.getLogger(__name__)
 
+
+def _send_with_retry(msg, recipient_info, retries=2, delay_seconds=1.5):
+    last_error = None
+
+    for attempt in range(1, retries + 2):
+        try:
+            mail.send(msg)
+            success_msg = f"✅ Success: Email delivered to {recipient_info}"
+            logger.info(success_msg)
+            return True, "Email sent"
+        except (ConnectionResetError, BrokenPipeError, socket.timeout, TimeoutError,
+                smtplib.SMTPServerDisconnected, OSError) as exc:
+            last_error = exc
+            if attempt <= retries:
+                logger.warning(
+                    "SMTP transient error for %s (attempt %s/%s): %s",
+                    recipient_info,
+                    attempt,
+                    retries + 1,
+                    str(exc),
+                )
+                time.sleep(delay_seconds)
+                continue
+            break
+        except Exception as exc:
+            last_error = exc
+            break
+
+    return False, str(last_error) if last_error else "Unknown SMTP error"
+
 def send_async_email(app, msg, recipient_info):
     """Worker function for the background thread."""
     with app.app_context():
-        try:
-            sys.stdout.flush()
-            mail.send(msg)
-            success_msg = f"✅ Success: Email delivered to {recipient_info}"
-            print(success_msg, flush=True)
-            logger.info(success_msg)
-            sys.stdout.flush()
-        except Exception as e:
-            error_msg = f"❌ SMTP Error for {recipient_info}: {str(e)}"
-            print(error_msg, flush=True)
-            logger.error(error_msg)
-            sys.stdout.flush()
+        retries = int(app.config.get('MAIL_RETRY_COUNT', 2))
+        delay_seconds = float(app.config.get('MAIL_RETRY_DELAY', 1.5))
+        ok, error = _send_with_retry(msg, recipient_info, retries=retries, delay_seconds=delay_seconds)
+        if not ok:
+            logger.error("❌ SMTP Error for %s: %s", recipient_info, error)
 
 def send_eden_email(subject, recipient, body_html, background=False):
     """Primary helper for sending emails.
@@ -35,7 +60,7 @@ def send_eden_email(subject, recipient, body_html, background=False):
     """
     if not recipient or not body_html:
         msg = f"⚠️  Invalid email data - recipient: {recipient}, body: {'<present>' if body_html else '<missing>'}"
-        print(msg, flush=True)
+        logger.warning(msg)
         return False, "Invalid email data"
 
     try:
@@ -49,7 +74,6 @@ def send_eden_email(subject, recipient, body_html, background=False):
         
         recipients_list = [recipient] if isinstance(recipient, str) else recipient
         queue_msg = f"📧 Queueing email to {recipients_list} with subject: {subject}"
-        print(queue_msg, flush=True)
         logger.info(queue_msg)
         
         msg = Message(
@@ -69,20 +93,18 @@ def send_eden_email(subject, recipient, body_html, background=False):
             thread.start()
 
             thread_msg = "📨 Email thread started"
-            print(thread_msg, flush=True)
             logger.info(thread_msg)
-            sys.stdout.flush()
             return True, "Email queued"
 
         # Synchronous send: return real SMTP success/failure to caller.
-        mail.send(msg)
-        success_msg = f"✅ Success: Email delivered to {recipients_list}"
-        print(success_msg, flush=True)
-        logger.info(success_msg)
-        return True, "Email sent"
+        retries = int(app_instance.config.get('MAIL_RETRY_COUNT', 2))
+        delay_seconds = float(app_instance.config.get('MAIL_RETRY_DELAY', 1.5))
+        ok, result = _send_with_retry(msg, recipients_list, retries=retries, delay_seconds=delay_seconds)
+        if ok:
+            return True, result
+        return False, result
     except Exception as e:
         error_msg = str(e)
         exc_msg = f"❌ Email Dispatch Error: {error_msg}"
-        print(exc_msg, flush=True)
         logger.error(exc_msg)
         return False, error_msg

@@ -39,7 +39,7 @@ def send_contact_message():
 	if len(message) > 5000:
 		return jsonify({"ok": False, "message": "Message is too long"}), 400
 
-	support_inbox = os.getenv("SUPPORT_INBOX", os.getenv("MAIL_USERNAME", "support@moamudipefoundation.org"))
+	support_inbox = os.getenv("SUPPORT_INBOX", os.getenv("MAIL_DEFAULT_SENDER", "info@thenewedenagro.com"))
 
 	body = get_contact_admin_template(first_name_safe, last_name_safe, email_safe, message_safe)
 
