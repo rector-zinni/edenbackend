@@ -53,7 +53,7 @@ app.config['MAIL_USE_SSL'] = mail_use_ssl
 app.config['MAIL_TIMEOUT'] = int(os.getenv('MAIL_TIMEOUT', '20'))
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = ('The New Eden', app.config['MAIL_USERNAME'])
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', app.config['MAIL_USERNAME'])
 
 # Initialize Mailer
 mail.init_app(app)

@@ -1,6 +1,7 @@
 import threading
 import logging
 import sys
+from email.utils import formataddr
 from flask_mail import Message
 from flask import current_app
 from extensions import mail  # Import the neutral mail object
@@ -40,6 +41,11 @@ def send_eden_email(subject, recipient, body_html, background=False):
     try:
         # Gets the real app object from the proxy
         app_instance = current_app._get_current_object()
+        sender_email = app_instance.config.get('MAIL_DEFAULT_SENDER') or app_instance.config.get('MAIL_USERNAME')
+        sender_name = app_instance.config.get('MAIL_SENDER_NAME', 'The New Eden')
+
+        if not sender_email or '@' not in str(sender_email):
+            return False, "MAIL_DEFAULT_SENDER/MAIL_USERNAME is missing or invalid"
         
         recipients_list = [recipient] if isinstance(recipient, str) else recipient
         queue_msg = f"📧 Queueing email to {recipients_list} with subject: {subject}"
@@ -49,6 +55,7 @@ def send_eden_email(subject, recipient, body_html, background=False):
         msg = Message(
             subject=subject,
             recipients=recipients_list,
+            sender=formataddr((sender_name, str(sender_email))),
             html=body_html
         )
 
