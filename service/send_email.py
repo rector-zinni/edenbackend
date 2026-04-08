@@ -3,6 +3,7 @@ import logging
 import time
 import socket
 import smtplib
+import os
 from email.utils import formataddr
 from flask_mail import Message
 from flask import current_app
@@ -82,6 +83,12 @@ def send_eden_email(subject, recipient, body_html, background=False):
             sender=formataddr((sender_name, str(sender_email))),
             html=body_html
         )
+
+        # In serverless runtimes (e.g., Vercel), background threads may be killed
+        # as soon as the request returns. Force sync send for reliability.
+        if background and os.getenv('VERCEL'):
+            logger.info("Serverless runtime detected; sending email synchronously instead of background thread")
+            background = False
 
         if background:
             # Fire and forget.

@@ -52,6 +52,8 @@ def send_contact_message():
 	# Send acknowledgement to user (non-blocking; does not fail the request)
 	ack_subject = "We received your message • The New Eden"
 	ack_body = get_contact_ack_template(first_name_safe)
-	send_eden_email(ack_subject, email, ack_body, background=True)
+	# IMPORTANT: Do not use background thread for serverless platforms (like Vercel),
+	# because the function can stop immediately after response.
+	send_eden_email(ack_subject, email, ack_body, background=False)
 
 	return jsonify({"ok": True, "message": "Message sent successfully"}), 200
