@@ -106,6 +106,52 @@ def get_password_reset_template(reset_link):
     return get_email_wrapper(content, preheader="Password reset request")
 
 
+def get_admin_new_order_template(order_id, user_email, total_amount, items, shipping_address=None):
+    items_list = "".join([
+        f"<li style='margin-bottom:4px;'>{i.get('name','Item')} &times; {i.get('quantity',1)} — ₦{float(i.get('price',0)):,.2f}</li>"
+        for i in (items or [])
+    ])
+    address_block = ""
+    if shipping_address:
+        address_block = f"<p style='margin:10px 0 0 0; color:#2f4333;'><strong>Delivery to:</strong> {shipping_address}</p>"
+    content = f"""
+        <h2 style="color:#122015; margin:0 0 10px 0;">🛒 New Order Received</h2>
+        <p style="margin:0 0 6px 0; color:#2f4333;"><strong>Order ID:</strong> #{order_id[-6:].upper()}</p>
+        <p style="margin:0 0 14px 0; color:#2f4333;"><strong>Customer:</strong> {user_email}</p>
+        <div style="background:#f7fbf7; border-radius:12px; padding:18px; margin:14px 0; border:1px solid #e3eee3;">
+            <ul style="padding-left:20px; margin:0; color:#1f3123;">{items_list}</ul>
+            <p style="margin-top:14px; border-top:1px solid #dce9dc; padding-top:10px; font-weight:700; color:#154212;">
+                Total: ₦{float(total_amount):,.2f}
+            </p>
+        </div>
+        {address_block}
+        <p style="margin:12px 0 0 0; color:#48614b; font-size:13px;">Payment status: <strong>Awaiting Payment</strong></p>
+    """
+    return get_email_wrapper(content, preheader=f"New order #{order_id[-6:].upper()} from {user_email}")
+
+
+def get_admin_payment_confirmed_template(order_id, user_email, total_amount, items, payment_reference=None):
+    items_list = "".join([
+        f"<li style='margin-bottom:4px;'>{i.get('name','Item')} &times; {i.get('quantity',1)} — ₦{float(i.get('price',0)):,.2f}</li>"
+        for i in (items or [])
+    ])
+    ref_block = f"<p style='margin:8px 0 0 0; color:#48614b; font-size:13px;'><strong>Reference:</strong> {payment_reference}</p>" if payment_reference else ""
+    content = f"""
+        <h2 style="color:#122015; margin:0 0 10px 0;">💰 Payment Confirmed — Order Ready to Process</h2>
+        <p style="margin:0 0 6px 0; color:#2f4333;"><strong>Order ID:</strong> #{order_id[-6:].upper()}</p>
+        <p style="margin:0 0 14px 0; color:#2f4333;"><strong>Customer:</strong> {user_email}</p>
+        <div style="background:#f7fbf7; border-radius:12px; padding:18px; margin:14px 0; border:1px solid #e3eee3;">
+            <ul style="padding-left:20px; margin:0; color:#1f3123;">{items_list}</ul>
+            <p style="margin-top:14px; border-top:1px solid #dce9dc; padding-top:10px; font-weight:700; color:#154212;">
+                Amount Paid: ₦{float(total_amount):,.2f}
+            </p>
+        </div>
+        {ref_block}
+        <p style="margin:12px 0 0 0; color:#48614b; font-size:13px;">Status updated to <strong>Processing</strong>. Please prepare for dispatch.</p>
+    """
+    return get_email_wrapper(content, preheader=f"Payment confirmed for order #{order_id[-6:].upper()}")
+
+
 def get_contact_admin_template(first_name, last_name, email, message):
     content = f"""
         <h2 style="color:#122015; margin:0 0 10px 0;">New Contact Form Message</h2>

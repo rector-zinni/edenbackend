@@ -1,10 +1,11 @@
+import os
 from flask import Blueprint, request, jsonify, g
 from firebase_admin import firestore
 import datetime
 import logging
 from service.notification import send_push_notification
 from service.send_email import send_eden_email
-from service.email_template import get_welcome_template
+from service.email_template import get_welcome_template, get_admin_new_order_template
 
 from middleware.auth import verify_firebase_token
 
@@ -56,7 +57,21 @@ def save_order():
 
         # Save to Firestore
         _, doc_ref = db.collection('orders').add(order_payload)
-        
+
+        # Notify admin of new order
+        try:
+            admin_inbox = os.getenv('SUPPORT_INBOX', os.getenv('MAIL_USERNAME', 'info@thenewedenagro.com'))
+            admin_html = get_admin_new_order_template(
+                order_id=doc_ref.id,
+                user_email=order_payload.get('user_email', ''),
+                total_amount=order_payload.get('totalAmount', 0),
+                items=order_payload.get('items') or [],
+                shipping_address=str(order_payload.get('shipping_address') or '')
+            )
+            send_eden_email(f"New Order #{doc_ref.id[-6:].upper()} Received", admin_inbox, admin_html)
+        except Exception as notify_err:
+            logger.warning(f"Admin order notification failed: {notify_err}")
+
         return jsonify({
             "status": True, 
             "message": "Order created. Awaiting payment verification.",
@@ -95,7 +110,21 @@ def save_guest_order():
 
         # Save to Firestore
         _, doc_ref = db.collection('orders').add(order_payload)
-        
+
+        # Notify admin of new guest order
+        try:
+            admin_inbox = os.getenv('SUPPORT_INBOX', os.getenv('MAIL_USERNAME', 'info@thenewedenagro.com'))
+            admin_html = get_admin_new_order_template(
+                order_id=doc_ref.id,
+                user_email=order_payload.get('user_email', ''),
+                total_amount=order_payload.get('totalAmount', 0),
+                items=order_payload.get('items') or [],
+                shipping_address=str(order_payload.get('shipping_address') or '')
+            )
+            send_eden_email(f"New Guest Order #{doc_ref.id[-6:].upper()} Received", admin_inbox, admin_html)
+        except Exception as notify_err:
+            logger.warning(f"Admin guest order notification failed: {notify_err}")
+
         return jsonify({
             "status": True, 
             "message": "Guest Order created. Awaiting payment.",
