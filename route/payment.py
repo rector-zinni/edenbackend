@@ -18,7 +18,9 @@ PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 def initialize_payment():
     data = request.json
     email = data.get("email")
-    amount = data.get("amount") # Must be in Kobo
+    amount = data.get("amount") # Must be Kobo
+    # Support dynamic callback for web vs mobile
+    callback_url = data.get("callback_url", "https://standard.paystack.co/close")
 
     if not email or not amount:
         return jsonify({"status": False, "message": "Missing email or amount"}), 400
@@ -31,7 +33,7 @@ def initialize_payment():
     payload = {
         "email": email,
         "amount": amount,
-        "callback_url": "https://standard.paystack.co/close" 
+        "callback_url": callback_url
     }
 
     try:
