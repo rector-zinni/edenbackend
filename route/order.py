@@ -121,7 +121,7 @@ def save_guest_order():
                 items=order_payload.get('items') or [],
                 shipping_address=str(order_payload.get('shipping_address') or '')
             )
-            send_eden_email(f"New Guest Order #{doc_ref.id[-6:].upper()} Received", admin_inbox, admin_html)
+            send_eden_email(f"New Guest Order #{doc_ref.id} Received", admin_inbox, admin_html)
         except Exception as notify_err:
             logger.warning(f"Admin guest order notification failed: {notify_err}")
 
