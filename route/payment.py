@@ -4,8 +4,9 @@ import os
 from flask import Blueprint, request, jsonify, g
 from firebase_admin import firestore
 import datetime
-from service.email_template import get_order_template
+from service.email_template import get_order_template, get_admin_payment_confirmed_template
 from service.send_email import send_eden_email
+import os
 from service.notification import create_admin_notification
 from config.env_loader import load_env_file
 db = firestore.client()
@@ -117,6 +118,21 @@ def verify_payment():
                             recipient=user_email,
                             body_html=html_content
                         )
+                        # Notify admin about payment confirmation
+                        try:
+                            support_inbox = os.getenv('SUPPORT_INBOX', os.getenv('MAIL_USERNAME'))
+                            if support_inbox:
+                                admin_html = get_admin_payment_confirmed_template(
+                                    order_id=order_id,
+                                    user_email=user_email,
+                                    total_amount=order_data.get('totalAmount', 0),
+                                    items=order_data.get('items', []),
+                                    payment_reference=reference
+                                )
+                                admin_subject = f"Payment Confirmed — Order #{order_id[-6:].upper()}"
+                                send_eden_email(admin_subject, support_inbox, admin_html)
+                        except Exception as _:
+                            pass
                     
                     return jsonify({
                         "status": True,
