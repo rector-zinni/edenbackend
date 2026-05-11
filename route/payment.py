@@ -109,7 +109,8 @@ def verify_payment():
                             user_name=order_data.get("fullName") or order_data.get("user_email"),
                             order_id=order_id,
                             amount=order_data.get("totalAmount"),
-                            items=order_data.get("items")
+                            items=order_data.get("items"),
+                            delivery_otp=order_data.get("delivery_otp")
                         )
                         
                         # Send it! (Background thread ensures this is fast)

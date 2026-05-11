@@ -68,7 +68,7 @@ def get_email_wrapper(content_html, preheader="Fresh updates from The New Eden")
         </html>
         """
 
-def get_order_template(user_name, order_id, amount, items):
+def get_order_template(user_name, order_id, amount, items, delivery_otp=None):
     items_list = "".join([f"<li>{i['name']} (x{i['quantity']})</li>" for i in items])
     content = f"""
         <h2 style="color:#122015; margin:0 0 10px 0;">Order Confirmed ✅</h2>
@@ -79,6 +79,7 @@ def get_order_template(user_name, order_id, amount, items):
                 Total Amount: ₦{amount:,.2f}
             </p>
         </div>
+        {"<p style='background:#15803d; color:white; padding:12px; border-radius:8px; text-align:center; font-weight:bold; font-size:18px;'>Delivery OTP: " + delivery_otp + "</p><p style='font-size:13px; color:#2f4333; margin-bottom:14px; text-align:center;'>Please provide this code to your delivery agent.</p>" if delivery_otp else ""}
         <p style="margin:0; color:#2f4333;">Our team in Lagos is preparing your delivery. You'll get another update once it's on the way.</p>
     """
     return get_email_wrapper(content, preheader="Your New Eden order has been confirmed")
@@ -106,7 +107,7 @@ def get_password_reset_template(reset_link):
     return get_email_wrapper(content, preheader="Password reset request")
 
 
-def get_admin_new_order_template(order_id, user_email, total_amount, items, shipping_address=None):
+def get_admin_new_order_template(order_id, user_email, total_amount, items, shipping_address=None, delivery_otp=None):
     items_list = "".join([
         f"<li style='margin-bottom:4px;'>{i.get('name','Item')} &times; {i.get('quantity',1)} — ₦{float(i.get('price',0)):,.2f}</li>"
         for i in (items or [])
@@ -125,6 +126,7 @@ def get_admin_new_order_template(order_id, user_email, total_amount, items, ship
             </p>
         </div>
         {address_block}
+        {"<p style='margin:10px 0; color:#154212; font-weight:bold; font-size:16px;'>Delivery OTP: " + delivery_otp + "</p>" if delivery_otp else ""}
         <p style="margin:12px 0 0 0; color:#48614b; font-size:13px;">Payment status: <strong>Awaiting Payment</strong></p>
     """
     return get_email_wrapper(content, preheader=f"New order #{order_id[-6:].upper()} from {user_email}")

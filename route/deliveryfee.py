@@ -43,7 +43,7 @@ def delivery_fee():
     distance_km = calculate_distance_km(WAREHOUSE_LAT, WAREHOUSE_LNG, user_lat, user_lng)
     fee = STATIC_DELIVERY_FEE  # For MVP, keep it static
     # Uncomment below later for dynamic fee
-    fee = STATIC_DELIVERY_FEE + (distance_km * PER_KM_RATE)
+    # fee = STATIC_DELIVERY_FEE + (distance_km * PER_KM_RATE)
 
     return jsonify({
         "delivery_fee": int(fee),
