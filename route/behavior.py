@@ -329,3 +329,94 @@ def get_behavior_stats():
         }), 200
     except Exception as e:
         return jsonify({"status": False, "error": str(e)}), 500
+
+
+
+
+
+
+@behavior_bp.route('/waitlist/join-details', methods=['POST'])
+def join_waitlist_details():
+    """
+    Public waitlist endpoint for unregistered visitors.
+    Uses email mapping to generate clean, deterministic Firestore records.
+    """
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        payload_name = data.get('name', '').strip()
+        payload_note = data.get('note', '').strip()
+        platform = data.get('platform', 'web')
+
+        # 1. Validation
+        if not email:
+            return jsonify({"status": False, "message": "Email is required"}), 400
+
+        # 2. Generate a clean, unique ID based purely on their email hash
+        # This keeps the collection organized without relying on Firebase Auth
+        digest = hashlib.md5(email.encode('utf-8')).hexdigest()
+        public_uid = f"public:{digest}"
+
+        # 3. Save directly to the 'waitlist-details' collection
+        db.collection('waitlist-details').document(public_uid).set({
+            "userId": public_uid,
+            "email": email,
+            "fullName": payload_name if payload_name else "Anonymous Visitor",
+            "note": payload_note if payload_note else None,
+            "platform": platform,
+            "createdAt": firestore.SERVER_TIMESTAMP
+        })
+
+        # 4. Record action to your behavior logs
+        db.collection('behavior_logs').add({
+            "userId": public_uid,
+            "anonymousId": data.get('anonymousId', None),
+            "action": "join_waitlist_detailed",
+            "path": "/waitlist",
+            "metadata": {
+                "email": email, 
+                "hasNote": bool(payload_note),
+                "hasName": bool(payload_name)
+            },
+            "platform": platform,
+            "userAgent": request.headers.get('User-Agent'),
+            "createdAt": firestore.SERVER_TIMESTAMP
+        })
+
+        # 5. Dispatch confirmation email template
+        try:
+            subject = "You're on The New Eden waitlist — thanks for joining!"
+            body_html = get_waitlist_template(user_name=payload_name, email=email)
+            send_eden_email(subject, email, body_html, background=True)
+        except Exception as email_err:
+            logger.error(f"Non-blocking email tracking failure: {email_err}")
+
+        return jsonify({"status": True, "message": "Successfully joined waitlist"}), 200
+
+    except Exception as e:
+        logger.error(f"Critical error inside waitlist processor: {str(e)}")
+        return jsonify({"status": False, "message": str(e)}), 500
+
+
+@behavior_bp.route('/admin/waitlist-details', methods=['GET'])
+def get_waitlist_details():
+    """Retrieve records from the 'waitlist-details' collection."""
+    try:
+        stream = db.collection('waitlist-details').order_by('createdAt', direction=firestore.Query.DESCENDING).stream()
+        results = []
+        for doc in stream:
+            w = doc.to_dict()
+            created_at = w.get('createdAt')
+            created_str = created_at.strftime('%Y-%m-%d %H:%M:%S') if created_at else 'Unknown'
+            results.append({
+                "userId": w.get('userId'),
+                "email": w.get('email', ''),
+                "fullName": w.get('fullName', ''),
+                "note": w.get('note', None),
+                "platform": w.get('platform', 'web'),
+                "createdAt": created_str
+            })
+
+        return jsonify({"total": len(results), "list": results}), 200
+    except Exception as e:
+        return jsonify({"status": False, "error": str(e)}), 500
