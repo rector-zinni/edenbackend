@@ -87,7 +87,7 @@ def get_order_template(user_name, order_id, amount, items, delivery_otp=None):
 def get_welcome_template(user_name):
     content = f"""
         <h2 style="color:#122015; margin:0 0 10px 0;">Welcome to the Garden, {user_name} 🌱</h2>
-        <p style="margin:0 0 14px 0; color:#2f4333;">Your account with <strong>The New Eden</strong> is now active. You can now browse fresh produce directly from local Southwestern Nigerian farms.</p>
+        <p style="margin:0 0 14px 0; color:#2f4333;">Your account with <strong>The New Eden</strong> is now active. You can now browse fresh produce directly from local Nigerian farms.</p>
         <div style="text-align:center; margin:24px 0;">
             <a href="#" style="display:inline-block; background:#15803d; color:white; padding:12px 24px; text-decoration:none; border-radius:10px; font-weight:700;">Start Shopping</a>
         </div>
@@ -176,3 +176,37 @@ def get_contact_ack_template(first_name):
         </div>
     """
     return get_email_wrapper(content, preheader="We received your support request")
+
+
+def get_waitlist_template(user_name=None, email=None, feature_note=None):
+    """
+    HTML template for waitlist confirmation / welcome-to-waitlist emails.
+    Parameters:
+      - user_name: optional display name to personalize the message
+      - email: user's email (shown in the message)
+      - feature_note: optional short note about the feature or expected launch
+    """
+    display_name = user_name or "Friend"
+    feature_text = feature_note or "We'll let you know when we launch and send early access invites."
+
+    content = f"""
+        <h2 style=\"color:#122015; margin:0 0 10px 0;\">You're on the list, {display_name}! 🎉</h2>
+        <p style=\"margin:0 0 14px 0; color:#2f4333;\">Thanks for joining The New Eden waitlist. We saved <strong>{email or 'your email'}</strong> and will keep you posted.</p>
+
+        <div style=\"background:#f7fbf7; border-radius:12px; padding:16px; margin:16px 0; border:1px solid #e3eee3; color:#1f3123;\">
+            <p style=\"margin:0 0 8px 0;\">{feature_text}</p>
+            <p style=\"margin:0; font-size:13px; color:#48614b;\">As a waitlist member you'll get:</p>
+            <ul style=\"margin:8px 0 0 18px; color:#1f3123;\">
+                <li>Priority invites and early access</li>
+                <li>Exclusive referral bonuses</li>
+                <li>First look at new features</li>
+            </ul>
+        </div>
+
+        <div style=\"text-align:center; margin:20px 0;\">
+            <a href=\"#\" style=\"display:inline-block; background:#15803d; color:white; padding:12px 20px; text-decoration:none; border-radius:10px; font-weight:700;\">Share with friends</a>
+        </div>
+
+        <p style=\"margin:0; color:#2f4333; font-size:13px;\">We respect your inbox. If you'd rather not receive these updates, reply to this email with "unsubscribe" and we'll take care of it.</p>
+    """
+    return get_email_wrapper(content, preheader="You're on The New Eden waitlist — thank you!")

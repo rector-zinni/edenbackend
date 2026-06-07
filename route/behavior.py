@@ -1,8 +1,15 @@
 import datetime
+import os
+import hashlib
+import logging
 from flask import Blueprint, request, jsonify, g
 from firebase_admin import firestore, auth
 from middleware.auth import verify_firebase_token
 import config.firebaseconfig
+from service.send_email import send_eden_email
+from service.email_template import get_waitlist_template
+
+logger = logging.getLogger(__name__)
 
 behavior_bp = Blueprint("behavior", __name__)
 db = firestore.client()
@@ -52,29 +59,56 @@ def track_behavior():
         return jsonify({"status": False, "message": str(e)}), 500
 
 @behavior_bp.route('/waitlist/join', methods=['POST'])
-@verify_firebase_token
 def join_waitlist():
+    """Join waitlist.
+
+    This endpoint supports two modes:
+    - Authenticated: when a valid Firebase token is provided, dynamically resolved via token lookup.
+    - Public testing: when env `ALLOW_PUBLIC_WAITLIST` is true, accepts unauthenticated joins using the posted email.
+    """
     try:
-        uid = g.user["uid"]
-        email = g.user.get("email")
         data = request.json or {}
+        platform = data.get('platform', 'web')
         
-        # Use email from request if available, otherwise fallback to Auth email
-        email = data.get("email", email)
-        platform = data.get("platform", "web")
-        
+        # Extract user identity safely without requiring explicit decorator enforcement
+        uid = get_auth_user_id()
+        email = None
+        user_name = None
+
+        if uid:
+            try:
+                # Fetch fresh profile record from Firebase instance since middleware is bypassed
+                user_record = auth.get_user(uid)
+                email = user_record.email
+                # Try getting display name if available in custom user details
+                user_name = getattr(user_record, 'display_name', None)
+            except Exception as auth_err:
+                logger.warning(f"Failed to fetch Firebase profile details for uid {uid}: {auth_err}")
+
+        # Extract payload inputs and process environmental overrides
+        email = data.get('email', email)
+        allow_public = os.getenv('ALLOW_PUBLIC_WAITLIST', 'false').strip().lower() in ('1', 'true', 'yes')
+
+        if not uid and not allow_public:
+            return jsonify({"status": False, "message": "Authentication required"}), 401
+
         if not email:
             return jsonify({"status": False, "message": "Email is required"}), 400
-            
-        # Using uid as the document ID directly to enforce a single waitlist entry per user
+
+        # Generate fallback structural layout if processing public traffic logs
+        if not uid:
+            digest = hashlib.md5(email.encode('utf-8')).hexdigest()
+            uid = f"public:{digest}"
+
+        # Persist entry directly using deterministic keys to enforce structural uniqueness
         db.collection('waitlist').document(uid).set({
             "userId": uid,
             "email": email,
             "platform": platform,
             "createdAt": firestore.SERVER_TIMESTAMP
         })
-        
-        # Also track this action
+
+        # Record event logs tracking waitlist conversion details
         db.collection('behavior_logs').add({
             "userId": uid,
             "anonymousId": None,
@@ -85,7 +119,15 @@ def join_waitlist():
             "userAgent": request.headers.get('User-Agent'),
             "createdAt": firestore.SERVER_TIMESTAMP
         })
-        
+
+        # Fire asynchronous background mailing pipeline (best-effort execution context)
+        try:
+            subject = "You're on The New Eden waitlist — thanks for joining!"
+            body_html = get_waitlist_template(user_name=user_name, email=email)
+            send_eden_email(subject, email, body_html, background=True)
+        except Exception as email_err:
+            logger.error(f"Non-blocking email failure inside waitlist loop: {email_err}")
+
         return jsonify({"status": True, "message": "Successfully joined waitlist"}), 200
     except Exception as e:
         return jsonify({"status": False, "message": str(e)}), 500
@@ -121,7 +163,7 @@ def submit_rating():
             "createdAt": firestore.SERVER_TIMESTAMP
         })
         
-        # Also track this action
+        # Track rating action activity
         db.collection('behavior_logs').add({
             "userId": user_id,
             "anonymousId": None,
@@ -140,7 +182,6 @@ def submit_rating():
 @behavior_bp.route('/admin/behavior-stats', methods=['GET'])
 def get_behavior_stats():
     try:
-        # Fetch user directory to resolve names/emails
         users_stream = db.collection('users').stream()
         user_map = {}
         for doc in users_stream:
@@ -167,6 +208,8 @@ def get_behavior_stats():
             if uid in user_map:
                 email = user_map[uid].get('email', email)
                 name = user_map[uid].get('fullName', name)
+            elif uid and uid.startswith("public:"):
+                name = "Public Tester"
                 
             plat = w.get('platform', 'web')
             platform_waitlist[plat] = platform_waitlist.get(plat, 0) + 1
@@ -232,6 +275,9 @@ def get_behavior_stats():
             if uid and uid in user_map:
                 email = user_map[uid].get('email', email)
                 name = user_map[uid].get('fullName', name)
+            elif uid and uid.startswith("public:"):
+                email = log.get('metadata', {}).get('email', 'Public Email')
+                name = "Public Tester"
             elif log.get('anonymousId'):
                 email = f"Guest ({log.get('anonymousId')[:8]})"
                 
@@ -257,11 +303,9 @@ def get_behavior_stats():
                 "createdAt": created_str
             })
 
-        # Format top visited pages
+        # Top performance aggregations
         sorted_pages = sorted(page_views.items(), key=lambda x: x[1], reverse=True)[:10]
         top_pages = [{"path": p, "views": v} for p, v in sorted_pages]
-        
-        # Format action breakdown
         formatted_actions = [{"action": a, "count": c} for a, c in action_counts.items()]
 
         return jsonify({

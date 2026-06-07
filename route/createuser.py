@@ -79,8 +79,9 @@ def sync_user():
             
             send_eden_email(
                 subject="Welcome to The New Eden! 🌿",
-                recipients=[email],
-                html=html_content
+                recipient=email,
+                body_html=html_content,
+                background=True
             )
 
            
@@ -140,8 +141,9 @@ def sync_guest_user():
                 html_content = get_welcome_template(full_name or 'Guest User')
                 send_eden_email(
                     subject='Welcome to The New Eden (Guest Mode) 🌿',
-                    recipients=[email],
-                    html=html_content
+                    recipient=email,
+                    body_html=html_content,
+                    background=True
                 )
             except Exception as e:
                 print(f"❌ Failed to send guest welcome email: {e}")
