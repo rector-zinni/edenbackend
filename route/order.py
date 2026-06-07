@@ -60,7 +60,7 @@ def save_order():
         # Save to Firestore
         _, doc_ref = db.collection('orders').add(order_payload)
 
-        # Notify admin of new order
+        # Notify admin of new order — run in background so SMTP never blocks the response
         try:
             admin_inbox = os.getenv('SUPPORT_INBOX', os.getenv('MAIL_USERNAME', 'info@thenewedenagro.com'))
             admin_html = get_admin_new_order_template(
@@ -71,7 +71,7 @@ def save_order():
                 shipping_address=str(order_payload.get('shipping_address') or ''),
                 delivery_otp=order_payload.get('delivery_otp')
             )
-            send_eden_email(f"New Order #{doc_ref.id[-6:].upper()} Received", admin_inbox, admin_html)
+            send_eden_email(f"New Order #{doc_ref.id[-6:].upper()} Received", admin_inbox, admin_html, background=True)
         except Exception as notify_err:
             logger.warning(f"Admin order notification failed: {notify_err}")
 
@@ -115,7 +115,7 @@ def save_guest_order():
         # Save to Firestore
         _, doc_ref = db.collection('orders').add(order_payload)
 
-        # Notify admin of new guest order
+        # Notify admin of new guest order — run in background so SMTP never blocks the response
         try:
             admin_inbox = os.getenv('SUPPORT_INBOX', os.getenv('MAIL_USERNAME', 'info@thenewedenagro.com'))
             admin_html = get_admin_new_order_template(
@@ -126,7 +126,7 @@ def save_guest_order():
                 shipping_address=str(order_payload.get('shipping_address') or ''),
                 delivery_otp=order_payload.get('delivery_otp')
             )
-            send_eden_email(f"New Guest Order #{doc_ref.id} Received", admin_inbox, admin_html)
+            send_eden_email(f"New Guest Order #{doc_ref.id} Received", admin_inbox, admin_html, background=True)
         except Exception as notify_err:
             logger.warning(f"Admin guest order notification failed: {notify_err}")
 

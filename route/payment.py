@@ -34,8 +34,12 @@ def initialize_payment():
     payload = {
         "email": email,
         "amount": amount,
-        "callback_url": callback_url
+        "callback_url": callback_url,
     }
+    # Forward any metadata (e.g. order_id) to Paystack so it's available in the callback
+    metadata = data.get("metadata")
+    if metadata:
+        payload["metadata"] = metadata
 
     try:
         response = requests.post(url, json=payload, headers=headers)
@@ -113,11 +117,12 @@ def verify_payment():
                             delivery_otp=order_data.get("delivery_otp")
                         )
                         
-                        # Send it! (Background thread ensures this is fast)
+                        # Send confirmation email in background — never block the response
                         send_eden_email(
                             subject=f"Payment Received! Your Eden Order #{order_id[-6:].upper()} is Confirmed 🌿",
                             recipient=user_email,
-                            body_html=html_content
+                            body_html=html_content,
+                            background=True
                         )
                         # Notify admin about payment confirmation
                         try:
@@ -131,7 +136,7 @@ def verify_payment():
                                     payment_reference=reference
                                 )
                                 admin_subject = f"Payment Confirmed — Order #{order_id[-6:].upper()}"
-                                send_eden_email(admin_subject, support_inbox, admin_html)
+                                send_eden_email(admin_subject, support_inbox, admin_html, background=True)
                         except Exception as _:
                             pass
                     

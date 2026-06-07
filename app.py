@@ -25,6 +25,7 @@ from route.order import orders_bp
 from route.admin import admin_bp
 from route.notification import notification_bp
 from route.send_email import send_email_bp
+from route.behavior import behavior_bp
 
 # 1. Setup Logging
 # Vercel captures stdout/stderr automatically. 
@@ -37,8 +38,15 @@ logging.basicConfig(
 
 app = Flask(__name__)
 
-# Enable CORS so your Expo app can communicate with this API
-CORS(app)
+# Enable CORS for all origins, methods, and headers.
+# explicit config ensures CORS headers are attached to ALL responses,
+# including 401/500 errors returned by middleware (verify_firebase_token).
+CORS(app,
+     origins="*",
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+     expose_headers=["Content-Type", "Authorization"],
+     supports_credentials=False)
 
 # 2. Mail Configuration
 # It's best practice to use environment variables for passwords on Vercel
@@ -117,6 +125,7 @@ app.register_blueprint(delivery_bp, url_prefix="/api")
 app.register_blueprint(admin_bp, url_prefix="/api")
 app.register_blueprint(notification_bp, url_prefix="/api")
 app.register_blueprint(send_email_bp, url_prefix="/api")
+app.register_blueprint(behavior_bp, url_prefix="/api")
 
 # Vercel uses the 'app' object directly. 
 # The block below is only used for your local development.
